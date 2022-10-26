@@ -1,7 +1,10 @@
 import 'package:dragdrop/models/player.dart';
-import 'package:dragdrop/shared/placeholder_container.dart';
-import 'package:dragdrop/shared/player_container.dart';
+import 'package:dragdrop/views/shared/placeholder_container.dart';
+import 'package:dragdrop/views/shared/player_container.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+enum CGDragTargetMode { none, accept, reject }
 
 class CGDragTarget extends StatefulWidget {
   const CGDragTarget(
@@ -23,6 +26,7 @@ class CGDragTarget extends StatefulWidget {
 
 class _CGDragTarget extends State<CGDragTarget> {
   bool isPopulated = false;
+  CGDragTargetMode mode = CGDragTargetMode.none;
   Player? playerData;
 
   @override
@@ -33,15 +37,46 @@ class _CGDragTarget extends State<CGDragTarget> {
             ? PlayerContainer(
                 size: widget.size,
                 player: playerData!,
+                active: true,
+                onEmpty: () {
+                  setState(() {
+                    widget.didClear(playerData!);
+                    isPopulated = false;
+                    playerData = null;
+                  });
+                },
               )
             : PlaceholderContainer(
                 height: widget.size,
                 width: widget.size,
                 position: widget.position,
+                mode: mode,
               );
       },
+      onLeave: (data) {
+        if (mode != CGDragTargetMode.none) {
+          setState(() {
+            mode = CGDragTargetMode.none;
+          });
+        }
+      },
       onMove: (details) {
-        debugPrint(details.toString());
+        final player = details.data as Player;
+        if (player.position == widget.position) {
+          if (mode != CGDragTargetMode.accept) {
+            HapticFeedback.heavyImpact();
+            setState(() {
+              mode = CGDragTargetMode.accept;
+            });
+          }
+        } else {
+          if (mode != CGDragTargetMode.reject) {
+            HapticFeedback.vibrate();
+            setState(() {
+              mode = CGDragTargetMode.reject;
+            });
+          }
+        }
       },
       onAcceptWithDetails: (details) {
         setState(() {
@@ -49,6 +84,7 @@ class _CGDragTarget extends State<CGDragTarget> {
           widget.didPopulate(player);
           playerData = player;
           isPopulated = true;
+          mode = CGDragTargetMode.none;
         });
       },
       onWillAccept: (Player? data) {
