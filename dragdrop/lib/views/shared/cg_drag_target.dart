@@ -1,4 +1,5 @@
 import 'package:dragdrop/models/player.dart';
+import 'package:dragdrop/views/shared/cg_draggable.dart';
 import 'package:dragdrop/views/shared/placeholder_container.dart';
 import 'package:dragdrop/views/shared/player_container.dart';
 import 'package:flutter/material.dart';
@@ -34,7 +35,24 @@ class _CGDragTarget extends State<CGDragTarget> {
     return DragTarget(
       builder: (context, candidateData, rejectedData) {
         return isPopulated
-            ? PlayerContainer(
+            ?
+            // CGDraggable(
+            //     size: widget.size,
+            //     position: Offset.zero,
+            //     data: playerData!,
+            //     feedback: Material(
+            //       child: PlayerContainer(
+            //         size: widget.size,
+            //         player: playerData!,
+            //       ),
+            //     ),
+            //     childWhenDragging: Container(),
+            //     child: PlayerContainer(
+            //       size: widget.size,
+            //       player: playerData!,
+            //     ),
+            //   )
+            PlayerContainer(
                 size: widget.size,
                 player: playerData!,
                 active: true,

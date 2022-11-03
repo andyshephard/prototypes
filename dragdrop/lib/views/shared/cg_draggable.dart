@@ -9,6 +9,7 @@ class CGDraggable extends StatefulWidget {
     required this.child,
     required this.feedback,
     required this.childWhenDragging,
+    required this.onReject,
     this.affinity,
     this.data,
   });
@@ -19,14 +20,16 @@ class CGDraggable extends StatefulWidget {
   final Widget childWhenDragging;
   final Widget feedback;
 
+  final Function(Offset) onReject;
+
   dynamic affinity;
   Object? data;
 
   @override
-  State<CGDraggable> createState() => _CGDraggableState();
+  State<CGDraggable> createState() => CGDraggableState();
 }
 
-class _CGDraggableState extends State<CGDraggable>
+class CGDraggableState extends State<CGDraggable>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<Offset> _animation;
@@ -58,36 +61,20 @@ class _CGDraggableState extends State<CGDraggable>
 
   @override
   void initState() {
-    offset = widget.position;
-    _controller = AnimationController(vsync: this);
-    _controller.addListener(() {
-      setState(() {
-        offset = _animation.value;
-      });
-    });
     super.initState();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final draggable = Draggable(
-      onDragUpdate: (details) {
-        _controller.stop();
-        setState(() {
-          offset = Offset(details.localPosition.dx - (widget.size / 2),
-              details.localPosition.dy - (widget.size / 2));
-        });
-      },
+    return Draggable(
       onDragEnd: (details) {
         if (details.wasAccepted == false) {
-          _runAnimation(details.velocity.pixelsPerSecond, size);
+          widget.onReject(details.offset);
         }
       },
       affinity: widget.affinity,
@@ -95,11 +82,6 @@ class _CGDraggableState extends State<CGDraggable>
       childWhenDragging: widget.childWhenDragging,
       feedback: widget.feedback,
       child: widget.child,
-    );
-    return Positioned(
-      left: offset.dx,
-      top: offset.dy,
-      child: draggable,
     );
   }
 }
