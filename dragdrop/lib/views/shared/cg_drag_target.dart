@@ -1,4 +1,5 @@
 import 'package:dragdrop/models/player.dart';
+import 'package:dragdrop/views/shared/animated_feedback.dart';
 import 'package:dragdrop/views/shared/cg_draggable.dart';
 import 'package:dragdrop/views/shared/placeholder_container.dart';
 import 'package:dragdrop/views/shared/player_container.dart';
@@ -10,110 +11,150 @@ enum CGDragTargetMode { none, accept, reject }
 class CGDragTarget extends StatefulWidget {
   const CGDragTarget(
       {Key? key,
-      required this.size,
+      required this.targetSize,
+      required this.feedbackSize,
       required this.didPopulate,
       required this.didClear,
       required this.position})
       : super(key: key);
 
-  final double size;
+  final Size targetSize;
+  final Size feedbackSize;
+  final String position;
   final Function(Player) didPopulate;
   final Function(Player) didClear;
-  final String position;
 
   @override
-  _CGDragTarget createState() => _CGDragTarget();
+  CGDragTargetState createState() => CGDragTargetState();
 }
 
-class _CGDragTarget extends State<CGDragTarget> {
-  bool isPopulated = false;
-  CGDragTargetMode mode = CGDragTargetMode.none;
-  Player? playerData;
+class CGDragTargetState extends State<CGDragTarget> {
+  final _globalKey = GlobalKey<CGDragTargetState>();
+
+  bool _isPopulated = false;
+  CGDragTargetMode _mode = CGDragTargetMode.none;
+  Player? _playerData;
+
+  Offset? _originalOffset;
+  Offset? _currentOffset;
+  Velocity? _velocity;
+  bool _showFeedback = false;
 
   @override
   Widget build(BuildContext context) {
-    return DragTarget(
-      builder: (context, candidateData, rejectedData) {
-        return isPopulated
-            ?
-            // CGDraggable(
-            //     size: widget.size,
-            //     position: Offset.zero,
-            //     data: playerData!,
-            //     feedback: Material(
-            //       child: PlayerContainer(
-            //         size: widget.size,
-            //         player: playerData!,
-            //       ),
-            //     ),
-            //     childWhenDragging: Container(),
-            //     child: PlayerContainer(
-            //       size: widget.size,
-            //       player: playerData!,
-            //     ),
-            //   )
-            PlayerContainer(
-                size: widget.size,
-                player: playerData!,
-                active: true,
-                onEmpty: () {
-                  setState(() {
-                    widget.didClear(playerData!);
-                    isPopulated = false;
-                    playerData = null;
-                  });
-                },
-              )
-            : PlaceholderContainer(
-                height: widget.size,
-                width: widget.size,
-                position: widget.position,
-                mode: mode,
-              );
-      },
-      onLeave: (data) {
-        if (mode != CGDragTargetMode.none) {
-          setState(() {
-            mode = CGDragTargetMode.none;
-          });
-        }
-      },
-      onMove: (details) {
-        final player = details.data as Player;
-        if (player.position == widget.position) {
-          if (mode != CGDragTargetMode.accept) {
-            HapticFeedback.heavyImpact();
-            setState(() {
-              mode = CGDragTargetMode.accept;
-            });
-          }
-        } else {
-          if (mode != CGDragTargetMode.reject) {
-            HapticFeedback.vibrate();
-            setState(() {
-              mode = CGDragTargetMode.reject;
-            });
-          }
-        }
-      },
-      onAcceptWithDetails: (details) {
-        setState(() {
-          final player = details.data as Player;
-          widget.didPopulate(player);
-          playerData = player;
-          isPopulated = true;
-          mode = CGDragTargetMode.none;
-        });
-      },
-      onWillAccept: (Player? data) {
-        if (isPopulated == true) {
-          // If the cell is already populated, we should return the original player to the list.
-          widget.didClear(playerData!);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // TODO: Add didClear?
+        DragTarget(
+          key: _globalKey,
+          builder: (context, candidateData, rejectedData) {
+            return _isPopulated
+                ? Center(
+                    child: CGDraggable(
+                      size: widget.feedbackSize,
+                      data: _playerData!,
+                      feedback: Material(
+                        child: PlayerContainer(
+                          size: widget.feedbackSize,
+                          player: _playerData!,
+                        ),
+                      ),
+                      child: PlayerContainer(
+                        size: widget.feedbackSize,
+                        player: _playerData!,
+                      ),
+                    ),
+                  )
+                : PlaceholderContainer(
+                    size: widget.targetSize,
+                    position: widget.position,
+                    mode: _mode,
+                  );
+          },
+          onLeave: (data) {
+            // TODO: Can we animate the target here somehow?
+            if (_mode != CGDragTargetMode.none) {
+              setState(() {
+                _mode = CGDragTargetMode.none;
+              });
+            }
+          },
+          onMove: (details) {
+            // TODO: Can we animate the target here somehow?
 
-          // TODO: What about switching players from one target to another?
-        }
-        return widget.position == data?.position;
-      },
+            final player = details.data as Player;
+            if (player.position == widget.position) {
+              if (_mode != CGDragTargetMode.accept) {
+                HapticFeedback.heavyImpact();
+                setState(() {
+                  _mode = CGDragTargetMode.accept;
+                });
+              }
+            } else {
+              if (_mode != CGDragTargetMode.reject) {
+                HapticFeedback.vibrate();
+                setState(() {
+                  _mode = CGDragTargetMode.reject;
+                });
+              }
+            }
+          },
+          onAcceptWithDetails: (details) {
+            // Return existing player to list if populated.
+            if (_isPopulated == true) widget.didClear(_playerData!);
+
+            RenderBox? object =
+                _globalKey.currentContext?.findRenderObject() as RenderBox?;
+            if (object != null) {
+              setState(() {
+                _playerData = details.data as Player;
+                widget.didPopulate(_playerData!);
+                _currentOffset = details.offset;
+
+                // TODO: Configure central offset w/ AnimatedFeedback.
+
+                // final targetOffset = object.localToGlobal(Offset.zero);
+                // final offsetX = targetOffset.dx +
+                //     ((widget.targetSize.width / 2) -
+                //         (widget.feedbackSize.width / 2));
+                // final offsetY = targetOffset.dy +
+                //     ((widget.targetSize.height / 2) -
+                //         (widget.feedbackSize.height / 2));
+                // _originalOffset = Offset(offsetX, offsetY);
+
+                _originalOffset = object.localToGlobal(Offset.zero);
+                _velocity = const Velocity(pixelsPerSecond: Offset.zero);
+                _showFeedback = true;
+              });
+            }
+          },
+          onWillAccept: (Player? data) {
+            return widget.position == data?.position;
+          },
+        ),
+        if (_showFeedback)
+          AnimatedFeedback(
+            currentOffset: _currentOffset!,
+            originalOffset: _originalOffset!,
+            velocity: _velocity!,
+            size: widget.feedbackSize,
+            onEnd: () {
+              setState(() {
+                _showFeedback = false;
+                _currentOffset = null;
+                _velocity = null;
+
+                _isPopulated = true;
+                _mode = CGDragTargetMode.none;
+              });
+            },
+            child: PlayerContainer(
+              player: _playerData!,
+              size: widget.feedbackSize,
+            ),
+          )
+      ],
     );
   }
 }

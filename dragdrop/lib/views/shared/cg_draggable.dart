@@ -1,87 +1,110 @@
+import 'package:dragdrop/views/shared/animated_feedback.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
 
 class CGDraggable extends StatefulWidget {
   CGDraggable({
     super.key,
     required this.size,
-    required this.position,
-    required this.child,
     required this.feedback,
-    required this.childWhenDragging,
-    required this.onReject,
+    required this.data,
+    required this.child,
+    this.childWhenDragging,
     this.affinity,
-    this.data,
+    this.onReject,
   });
 
-  final double size;
-  final Offset position;
-  final Widget child;
-  final Widget childWhenDragging;
+  final Size size;
+  final Widget? childWhenDragging;
   final Widget feedback;
+  final Axis? affinity;
+  final Object? data;
+  final Widget child;
 
-  final Function(Offset) onReject;
-
-  dynamic affinity;
-  Object? data;
+  Function(DraggableDetails)? onReject;
 
   @override
   State<CGDraggable> createState() => CGDraggableState();
 }
 
-class CGDraggableState extends State<CGDraggable>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<Offset> _animation;
-  late Offset offset;
+class CGDraggableState extends State<CGDraggable> {
+  final _globalKey = GlobalKey<CGDraggableState>();
+  late Widget childWhenDragging;
 
-  void _runAnimation(Offset pixelsPerSecond, Size size) {
-    _animation = _controller.drive(
-      Tween<Offset>(
-        begin: offset,
-        end: widget.position,
-      ),
-    );
-    // Calculate the velocity relative to the unit interval, [0,1],
-    // used by the animation controller.
-    final unitsPerSecondX = pixelsPerSecond.dx / size.width;
-    final unitsPerSecondY = pixelsPerSecond.dy / size.height;
-    final unitsPerSecond = Offset(unitsPerSecondX, unitsPerSecondY);
-    final unitVelocity = unitsPerSecond.distance;
-
-    const spring = SpringDescription(
-      mass: 30,
-      stiffness: 1,
-      damping: 1,
-    );
-
-    final simulation = SpringSimulation(spring, 0, 1, -unitVelocity);
-    _controller.animateWith(simulation);
-  }
+  Offset? _originalOffset;
+  Offset? _currentOffset;
+  Velocity? _velocity;
+  bool _showFeedback = false;
 
   @override
   void initState() {
+    // TODO: Change this to access only from parent, not local instance.
+    childWhenDragging = widget.childWhenDragging ??
+        Opacity(
+          opacity: 0.5,
+          child: widget.child,
+        );
     super.initState();
   }
 
   @override
   void dispose() {
+    _originalOffset = null;
+    _currentOffset = null;
+    _velocity = null;
+    _showFeedback = false;
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Draggable(
-      onDragEnd: (details) {
-        if (details.wasAccepted == false) {
-          widget.onReject(details.offset);
-        }
-      },
-      affinity: widget.affinity,
-      data: widget.data,
-      childWhenDragging: widget.childWhenDragging,
-      feedback: widget.feedback,
-      child: widget.child,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Draggable(
+          key: _globalKey,
+          onDragEnd: (details) {
+            if (details.wasAccepted == false) {
+              // Check for callback. If present, return data to parent.
+              if (widget.onReject != null) {
+                widget.onReject!(details);
+                return;
+              }
+
+              // Failed to hit target. Animate feedback return.
+              RenderBox? object =
+                  _globalKey.currentContext?.findRenderObject() as RenderBox?;
+              if (object != null) {
+                setState(() {
+                  _velocity = details.velocity;
+                  _currentOffset = details.offset;
+                  _originalOffset = object.localToGlobal(Offset.zero);
+                  _showFeedback = true;
+                });
+              }
+            }
+          },
+          affinity: widget.affinity,
+          data: widget.data,
+          childWhenDragging: childWhenDragging,
+          feedback: widget.feedback,
+          child: _showFeedback ? childWhenDragging : widget.child,
+        ),
+        if (_showFeedback)
+          AnimatedFeedback(
+            currentOffset: _currentOffset!,
+            originalOffset: _originalOffset!,
+            velocity: _velocity!,
+            size: widget.size,
+            onEnd: () {
+              setState(() {
+                _showFeedback = false;
+                _currentOffset = null;
+                _velocity = null;
+              });
+            },
+            child: widget.feedback,
+          )
+      ],
     );
   }
 }

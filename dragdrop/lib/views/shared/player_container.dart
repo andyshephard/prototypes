@@ -10,7 +10,7 @@ class PlayerContainer extends StatelessWidget {
     this.onEmpty,
   }) : super(key: key);
 
-  final double size;
+  final Size size;
   final Player player;
   final bool active;
   VoidCallback? onEmpty;
@@ -20,8 +20,8 @@ class PlayerContainer extends StatelessWidget {
     return Stack(
       children: [
         Container(
-          height: size,
-          width: size,
+          height: size.height,
+          width: size.width,
           color: player.color,
           child: Center(
             child: Text(

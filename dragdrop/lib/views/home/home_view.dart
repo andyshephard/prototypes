@@ -20,6 +20,7 @@ class _HomeViewState extends State<HomeView> {
   Offset? currentOffset;
   Offset? originalOffset;
   Widget? feedbackChild;
+  Velocity? velocity;
   bool showFeedback = false;
 
   Offset position = Offset.zero;
@@ -31,37 +32,37 @@ class _HomeViewState extends State<HomeView> {
         position: 'GK',
         color: Colors.red,
         name: 'Allison',
-        globalKey: GlobalKey(),
+        globalKey: UniqueKey(),
       ),
       Player(
         position: 'ST',
         color: Colors.lightBlue,
         name: 'Haaland',
-        globalKey: GlobalKey(),
+        globalKey: UniqueKey(),
       ),
       Player(
         position: 'CB',
         color: Colors.green,
         name: 'Shephard',
-        globalKey: GlobalKey(),
+        globalKey: UniqueKey(),
       ),
       Player(
         position: 'ST',
         color: Colors.red,
         name: 'Ronaldo',
-        globalKey: GlobalKey(),
+        globalKey: UniqueKey(),
       ),
       Player(
         position: 'RW',
         color: Colors.lightBlue,
         name: 'Messi',
-        globalKey: GlobalKey(),
+        globalKey: UniqueKey(),
       ),
       Player(
         position: 'ST',
         color: Colors.yellow,
         name: 'Deeney',
-        globalKey: GlobalKey(),
+        globalKey: UniqueKey(),
       ),
     ]);
     super.initState();
@@ -75,26 +76,31 @@ class _HomeViewState extends State<HomeView> {
     return Scaffold(
       body: SafeArea(
         child: Stack(
+          clipBehavior: Clip.none,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: GridView.builder(
+                clipBehavior: Clip.none,
                 itemCount: containers.length,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2),
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 4.0,
+                  crossAxisSpacing: 4.0,
+                ),
                 itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: CGDragTarget(
-                      size: kTargetContainerSize,
-                      position: containers[index],
-                      didClear: (player) => setState(() {
-                        data.insert(0, player);
-                      }),
-                      didPopulate: (player) => setState(() {
-                        data.remove(player);
-                      }),
-                    ),
+                  return CGDragTarget(
+                    targetSize:
+                        Size(kTargetContainerSize, kTargetContainerSize),
+                    feedbackSize:
+                        Size(kPlayerContainerSize, kPlayerContainerSize),
+                    position: containers[index],
+                    didClear: (player) => setState(() {
+                      data.insert(0, player);
+                    }),
+                    didPopulate: (player) => setState(() {
+                      data.remove(player);
+                    }),
                   );
                 },
               ),
@@ -104,6 +110,7 @@ class _HomeViewState extends State<HomeView> {
               child: SizedBox(
                 height: kPlayerContainerSize,
                 child: ReorderableListView.builder(
+                  clipBehavior: Clip.none,
                   onReorder: (oldIndex, newIndex) {
                     setState(() {
                       if (oldIndex < newIndex) {
@@ -119,110 +126,30 @@ class _HomeViewState extends State<HomeView> {
                   physics: const ScrollPhysics(),
                   itemCount: data.length,
                   itemBuilder: (context, index) {
-                    final feedback = Material(
-                      child: PlayerContainer(
-                        size: kPlayerContainerSize,
-                        player: data[index],
+                    return CGDraggable(
+                      key: ValueKey(index),
+                      size: Size(kPlayerContainerSize, kPlayerContainerSize),
+                      feedback: Material(
+                        child: PlayerContainer(
+                          size:
+                              Size(kPlayerContainerSize, kPlayerContainerSize),
+                          player: data[index],
+                        ),
                       ),
-                    );
-                    return Draggable(
-                      key: data[index].globalKey,
                       affinity: Axis.vertical,
                       data: data[index],
-                      feedback: feedback,
-                      childWhenDragging: Container(),
                       child: PlayerContainer(
-                        size: kPlayerContainerSize,
+                        size: Size(kPlayerContainerSize, kPlayerContainerSize),
                         player: data[index],
                       ),
-                      onDragEnd: (details) {
-                        if (details.wasAccepted == false) {
-                          setState(() {
-                            currentOffset = details.offset;
-                            RenderBox? object = data[index]
-                                .globalKey
-                                .currentContext
-                                ?.findRenderObject() as RenderBox?;
-                            if (object != null) {
-                              originalOffset =
-                                  object.localToGlobal(Offset.zero);
-                              feedbackChild = feedback;
-                              showFeedback = true;
-                            }
-                          });
-                        }
-                      },
                     );
                   },
                 ),
               ),
             ),
-            if (showFeedback)
-              AnimatedFeedback(
-                  currentOffset: currentOffset!,
-                  originalOffset: originalOffset!,
-                  size: Size(kPlayerContainerSize, kPlayerContainerSize),
-                  child: feedbackChild!,
-                  onEnd: () {
-                    setState(() {
-                      showFeedback = false;
-                      feedbackChild = null;
-                      currentOffset = null;
-                      originalOffset = null;
-                    });
-                  })
           ],
         ),
       ),
-    );
-  }
-}
-
-class AnimatedFeedback extends StatefulWidget {
-  const AnimatedFeedback({
-    super.key,
-    required this.currentOffset,
-    required this.originalOffset,
-    required this.size,
-    required this.onEnd,
-    required this.child,
-  });
-
-  final Offset currentOffset;
-  final Offset originalOffset;
-  final Size size;
-  final VoidCallback onEnd;
-  final Widget child;
-
-  @override
-  State<AnimatedFeedback> createState() => _AnimatedFeedbackState();
-}
-
-class _AnimatedFeedbackState extends State<AnimatedFeedback> {
-  bool shouldAnimate = false;
-  @override
-  void initState() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      setState(() {
-        shouldAnimate = true;
-      });
-    });
-    super.initState();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedPositioned(
-      width: widget.size.width,
-      height: widget.size.height,
-      left: shouldAnimate ? widget.originalOffset.dx : widget.currentOffset.dx,
-      top: shouldAnimate ? widget.originalOffset.dy : widget.currentOffset.dy,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-      child: widget.child,
-      onEnd: () {
-        widget.onEnd();
-      },
     );
   }
 }

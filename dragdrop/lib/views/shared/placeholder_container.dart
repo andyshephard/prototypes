@@ -4,14 +4,12 @@ import 'package:flutter/material.dart';
 class PlaceholderContainer extends StatelessWidget {
   const PlaceholderContainer({
     Key? key,
-    required this.height,
-    required this.width,
+    required this.size,
     required this.position,
     required this.mode,
   }) : super(key: key);
 
-  final double height;
-  final double width;
+  final Size size;
   final String position;
   final CGDragTargetMode mode;
 
@@ -30,8 +28,8 @@ class PlaceholderContainer extends StatelessWidget {
         break;
     }
     return Container(
-      height: height,
-      width: width,
+      height: size.height,
+      width: size.width,
       decoration: BoxDecoration(
         border: Border.all(width: 5.0, color: borderColor),
         color: Colors.grey.withOpacity(0.25),

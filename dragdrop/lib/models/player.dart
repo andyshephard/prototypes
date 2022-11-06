@@ -9,7 +9,7 @@ class Player {
     required this.name,
   });
 
-  final GlobalKey globalKey;
+  final dynamic globalKey;
   final String position;
   final Color color;
   final String name;
