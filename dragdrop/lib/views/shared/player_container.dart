@@ -1,4 +1,4 @@
-import 'package:dragdrop/models/player.dart';
+import 'package:dragdrop/domains/player.dart';
 import 'package:flutter/material.dart';
 
 class PlayerContainer extends StatelessWidget {

@@ -1,4 +1,6 @@
-import 'package:dragdrop/models/player.dart';
+import 'package:dragdrop/domains/player.dart';
+import 'package:dragdrop/models/player_list_model.dart';
+import 'package:dragdrop/models/target_model.dart';
 import 'package:dragdrop/views/shared/cg_drag_target.dart';
 import 'package:dragdrop/views/shared/cg_draggable.dart';
 import 'package:dragdrop/views/shared/player_container.dart';
@@ -14,7 +16,8 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   late double kTargetContainerSize;
   late double kPlayerContainerSize;
-  var data = [];
+  final _playerModel = PlayerListModel();
+  final _targetModel = TargetModel();
   var containers = ["GK", "RW", "ST", "CB", "ST", "ST"];
 
   Offset? currentOffset;
@@ -27,44 +30,47 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   void initState() {
-    data.addAll([
-      Player(
-        position: 'GK',
-        color: Colors.red,
-        name: 'Allison',
-        globalKey: UniqueKey(),
-      ),
-      Player(
-        position: 'ST',
-        color: Colors.lightBlue,
-        name: 'Haaland',
-        globalKey: UniqueKey(),
-      ),
-      Player(
-        position: 'CB',
-        color: Colors.green,
-        name: 'Shephard',
-        globalKey: UniqueKey(),
-      ),
-      Player(
-        position: 'ST',
-        color: Colors.red,
-        name: 'Ronaldo',
-        globalKey: UniqueKey(),
-      ),
-      Player(
-        position: 'RW',
-        color: Colors.lightBlue,
-        name: 'Messi',
-        globalKey: UniqueKey(),
-      ),
-      Player(
-        position: 'ST',
-        color: Colors.yellow,
-        name: 'Deeney',
-        globalKey: UniqueKey(),
-      ),
-    ]);
+    _playerModel.players.addAll(
+      [
+        Player(
+          position: 'GK',
+          color: Colors.red,
+          name: 'Allison',
+          globalKey: UniqueKey(),
+        ),
+        Player(
+          position: 'ST',
+          color: Colors.lightBlue,
+          name: 'Haaland',
+          globalKey: UniqueKey(),
+        ),
+        Player(
+          position: 'CB',
+          color: Colors.green,
+          name: 'Shephard',
+          globalKey: UniqueKey(),
+        ),
+        Player(
+          position: 'ST',
+          color: Colors.red,
+          name: 'Ronaldo',
+          globalKey: UniqueKey(),
+        ),
+        Player(
+          position: 'RW',
+          color: Colors.lightBlue,
+          name: 'Messi',
+          globalKey: UniqueKey(),
+        ),
+        Player(
+          position: 'ST',
+          color: Colors.yellow,
+          name: 'Deeney',
+          globalKey: UniqueKey(),
+        ),
+      ],
+    );
+
     super.initState();
   }
 
@@ -90,16 +96,44 @@ class _HomeViewState extends State<HomeView> {
                 ),
                 itemBuilder: (context, index) {
                   return CGDragTarget(
+                    data: _targetModel.targets[index],
                     targetSize:
                         Size(kTargetContainerSize, kTargetContainerSize),
                     feedbackSize:
                         Size(kPlayerContainerSize, kPlayerContainerSize),
                     position: containers[index],
                     didClear: (player) => setState(() {
-                      data.insert(0, player);
+                      _targetModel.targets.remove(index);
+                      _playerModel.players.insert(0, player);
                     }),
                     didPopulate: (player) => setState(() {
-                      data.remove(player);
+                      // Check if cell is already populated.
+                      final myPlayer = _targetModel.targets[index];
+
+                      // Check if new player is already in use.
+                      final inUseIndex = _targetModel.targets.keys.firstWhere(
+                          (key) => _targetModel.targets[key] == player,
+                          orElse: () => -1);
+
+                      if (myPlayer != null && inUseIndex != -1) {
+                        // If populated && inUse, SWAP.
+                        _targetModel.targets.remove(index);
+                        _targetModel.targets.remove(inUseIndex);
+                        _targetModel.targets[index] = player;
+                        _targetModel.targets[inUseIndex] = myPlayer;
+                      } else if (myPlayer == null && inUseIndex != -1) {
+                        // If !populated && inUse, MOVE TO NEW.
+                        _targetModel.targets.remove(inUseIndex);
+                        _targetModel.targets[index] = player;
+                      } else if (myPlayer != null && inUseIndex == -1) {
+                        // If populated && !inUse, RETURN OLD TO LIST.
+                        _targetModel.targets[index] = player;
+                        _playerModel.players.insert(0, myPlayer);
+                      } else {
+                        // If !populated && !inUse, POPULATE, REMOVE FROM LIST.
+                        _targetModel.targets[index] = player;
+                        _playerModel.players.remove(player);
+                      }
                     }),
                   );
                 },
@@ -116,15 +150,15 @@ class _HomeViewState extends State<HomeView> {
                       if (oldIndex < newIndex) {
                         newIndex -= 1;
                       }
-                      Player widget = data.removeAt(oldIndex);
-                      data.insert(newIndex, widget);
+                      Player widget = _playerModel.players.removeAt(oldIndex);
+                      _playerModel.players.insert(newIndex, widget);
                     });
                   },
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   scrollDirection: Axis.horizontal,
                   shrinkWrap: true,
                   physics: const ScrollPhysics(),
-                  itemCount: data.length,
+                  itemCount: _playerModel.players.length,
                   itemBuilder: (context, index) {
                     return CGDraggable(
                       key: ValueKey(index),
@@ -133,14 +167,14 @@ class _HomeViewState extends State<HomeView> {
                         child: PlayerContainer(
                           size:
                               Size(kPlayerContainerSize, kPlayerContainerSize),
-                          player: data[index],
+                          player: _playerModel.players[index],
                         ),
                       ),
                       affinity: Axis.vertical,
-                      data: data[index],
+                      data: _playerModel.players[index],
                       child: PlayerContainer(
                         size: Size(kPlayerContainerSize, kPlayerContainerSize),
-                        player: data[index],
+                        player: _playerModel.players[index],
                       ),
                     );
                   },

@@ -2,7 +2,7 @@ import 'package:dragdrop/views/shared/animated_feedback.dart';
 import 'package:flutter/material.dart';
 
 class CGDraggable extends StatefulWidget {
-  CGDraggable({
+  const CGDraggable({
     super.key,
     required this.size,
     required this.feedback,
@@ -19,8 +19,7 @@ class CGDraggable extends StatefulWidget {
   final Axis? affinity;
   final Object? data;
   final Widget child;
-
-  Function(DraggableDetails)? onReject;
+  final Function(DraggableDetails)? onReject;
 
   @override
   State<CGDraggable> createState() => CGDraggableState();
@@ -28,23 +27,11 @@ class CGDraggable extends StatefulWidget {
 
 class CGDraggableState extends State<CGDraggable> {
   final _globalKey = GlobalKey<CGDraggableState>();
-  late Widget childWhenDragging;
 
   Offset? _originalOffset;
   Offset? _currentOffset;
   Velocity? _velocity;
   bool _showFeedback = false;
-
-  @override
-  void initState() {
-    // TODO: Change this to access only from parent, not local instance.
-    childWhenDragging = widget.childWhenDragging ??
-        Opacity(
-          opacity: 0.5,
-          child: widget.child,
-        );
-    super.initState();
-  }
 
   @override
   void dispose() {
@@ -85,9 +72,19 @@ class CGDraggableState extends State<CGDraggable> {
           },
           affinity: widget.affinity,
           data: widget.data,
-          childWhenDragging: childWhenDragging,
+          childWhenDragging: widget.childWhenDragging ??
+              Opacity(
+                opacity: 0.5,
+                child: widget.child,
+              ),
           feedback: widget.feedback,
-          child: _showFeedback ? childWhenDragging : widget.child,
+          child: _showFeedback
+              ? widget.childWhenDragging ??
+                  Opacity(
+                    opacity: 0.5,
+                    child: widget.child,
+                  )
+              : widget.child,
         ),
         if (_showFeedback)
           AnimatedFeedback(

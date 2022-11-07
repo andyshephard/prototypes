@@ -1,4 +1,4 @@
-import 'package:dragdrop/models/player.dart';
+import 'package:dragdrop/domains/player.dart';
 import 'package:dragdrop/views/shared/animated_feedback.dart';
 import 'package:dragdrop/views/shared/cg_draggable.dart';
 import 'package:dragdrop/views/shared/placeholder_container.dart';
@@ -9,8 +9,9 @@ import 'package:flutter/services.dart';
 enum CGDragTargetMode { none, accept, reject }
 
 class CGDragTarget extends StatefulWidget {
-  const CGDragTarget(
+  CGDragTarget(
       {Key? key,
+      required this.data,
       required this.targetSize,
       required this.feedbackSize,
       required this.didPopulate,
@@ -18,6 +19,7 @@ class CGDragTarget extends StatefulWidget {
       required this.position})
       : super(key: key);
 
+  Player? data;
   final Size targetSize;
   final Size feedbackSize;
   final String position;
@@ -31,9 +33,8 @@ class CGDragTarget extends StatefulWidget {
 class CGDragTargetState extends State<CGDragTarget> {
   final _globalKey = GlobalKey<CGDragTargetState>();
 
-  bool _isPopulated = false;
   CGDragTargetMode _mode = CGDragTargetMode.none;
-  Player? _playerData;
+  bool _hoveringContent = false;
 
   Offset? _originalOffset;
   Offset? _currentOffset;
@@ -49,20 +50,20 @@ class CGDragTargetState extends State<CGDragTarget> {
         DragTarget(
           key: _globalKey,
           builder: (context, candidateData, rejectedData) {
-            return _isPopulated
+            return widget.data != null
                 ? Center(
                     child: CGDraggable(
                       size: widget.feedbackSize,
-                      data: _playerData!,
+                      data: widget.data,
                       feedback: Material(
                         child: PlayerContainer(
                           size: widget.feedbackSize,
-                          player: _playerData!,
+                          player: widget.data!,
                         ),
                       ),
                       child: PlayerContainer(
                         size: widget.feedbackSize,
-                        player: _playerData!,
+                        player: widget.data!,
                       ),
                     ),
                   )
@@ -70,25 +71,25 @@ class CGDragTargetState extends State<CGDragTarget> {
                     size: widget.targetSize,
                     position: widget.position,
                     mode: _mode,
+                    hoveringContent: _hoveringContent,
                   );
           },
           onLeave: (data) {
-            // TODO: Can we animate the target here somehow?
             if (_mode != CGDragTargetMode.none) {
               setState(() {
                 _mode = CGDragTargetMode.none;
+                _hoveringContent = false;
               });
             }
           },
           onMove: (details) {
-            // TODO: Can we animate the target here somehow?
-
             final player = details.data as Player;
             if (player.position == widget.position) {
               if (_mode != CGDragTargetMode.accept) {
                 HapticFeedback.heavyImpact();
                 setState(() {
                   _mode = CGDragTargetMode.accept;
+                  _hoveringContent = true;
                 });
               }
             } else {
@@ -96,34 +97,31 @@ class CGDragTargetState extends State<CGDragTarget> {
                 HapticFeedback.vibrate();
                 setState(() {
                   _mode = CGDragTargetMode.reject;
+                  _hoveringContent = true;
                 });
               }
             }
           },
           onAcceptWithDetails: (details) {
-            // Return existing player to list if populated.
-            if (_isPopulated == true) widget.didClear(_playerData!);
-
             RenderBox? object =
                 _globalKey.currentContext?.findRenderObject() as RenderBox?;
             if (object != null) {
               setState(() {
-                _playerData = details.data as Player;
-                widget.didPopulate(_playerData!);
+                widget.didPopulate(details.data as Player);
                 _currentOffset = details.offset;
 
                 // TODO: Configure central offset w/ AnimatedFeedback.
 
-                // final targetOffset = object.localToGlobal(Offset.zero);
-                // final offsetX = targetOffset.dx +
-                //     ((widget.targetSize.width / 2) -
-                //         (widget.feedbackSize.width / 2));
-                // final offsetY = targetOffset.dy +
-                //     ((widget.targetSize.height / 2) -
-                //         (widget.feedbackSize.height / 2));
-                // _originalOffset = Offset(offsetX, offsetY);
+                final targetOffset = object.localToGlobal(Offset.zero);
+                final offsetX = targetOffset.dx +
+                    ((widget.targetSize.width / 2) -
+                        (widget.feedbackSize.width / 2));
+                final offsetY = targetOffset.dy +
+                    ((widget.targetSize.height / 2) -
+                        (widget.feedbackSize.height / 2));
+                _originalOffset = Offset(offsetX, offsetY);
 
-                _originalOffset = object.localToGlobal(Offset.zero);
+                // _originalOffset = object.localToGlobal(Offset.zero);
                 _velocity = const Velocity(pixelsPerSecond: Offset.zero);
                 _showFeedback = true;
               });
@@ -144,13 +142,11 @@ class CGDragTargetState extends State<CGDragTarget> {
                 _showFeedback = false;
                 _currentOffset = null;
                 _velocity = null;
-
-                _isPopulated = true;
                 _mode = CGDragTargetMode.none;
               });
             },
             child: PlayerContainer(
-              player: _playerData!,
+              player: widget.data!,
               size: widget.feedbackSize,
             ),
           )
